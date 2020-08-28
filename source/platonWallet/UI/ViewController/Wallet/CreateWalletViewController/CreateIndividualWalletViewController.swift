@@ -54,6 +54,18 @@ class CreateIndividualWalletViewController: BaseViewController,StartBackupMnemon
         setupUI()
         prepareData()
         NotificationCenter.default.addObserver(self, selector: #selector(afterBackup), name: Notification.Name.ATON.BackupMnemonicFinish, object: nil)
+//        createLotsOfWallets(type: .normal)
+    }
+    
+    /// ✌️尝试创建大量钱包(调试用)
+    func createLotsOfWallets(type: WalletPhysicalType) {
+        #if DEBUG // 保证Debug环境才能正常触发
+        WalletService.sharedInstance.createWallet(name: "\(Date())", password: "hhhhhh", physicalType: type) { (wallet, eerror) in
+            self.createLotsOfWallets(type: type)
+            print("\(Date())")
+            print(WalletService.sharedInstance.wallets.count)
+        }
+        #endif
     }
 
     override func viewWillAppear(_ animated: Bool) {

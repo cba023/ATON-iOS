@@ -608,6 +608,7 @@ public final class WalletService {
 }
 
 extension WalletService {
+    
     public enum Error: Swift.Error, LocalizedError {
         case invalidWalletName
         case invalidWalletPassword

@@ -69,16 +69,26 @@ class SelectWalletVC: UIViewController, UITableViewDelegate, UITableViewDataSour
         configData()
         configContent()
         self.view.layoutIfNeeded()
-        if let indexPath = getInitialSectedIndex() {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                // 延时保证布局准确的情况进行定位
-                self.tableView.scrollToRow(at: indexPath, at: .top, animated: false)
-            }
-        }
+        
     }
 
     func configData() {
-        sectionInfos = generatePageDataSource(cate: .all, enterMode: self.enterMode)
+//        sectionInfos = generatePageDataSource(cate: .all, enterMode: self.enterMode)
+        showLoadingHUD()
+        generatePageDataSource(cate: .all, enterMode: self.enterMode) {[weak self] (sectionInfos) in
+            guard let self = self else {
+                return
+            }
+            self.hideLoadingHUD()
+            self.sectionInfos = sectionInfos
+            self.tableView.reloadData()
+            if let indexPath = self.getInitialSectedIndex() {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                    // 延时保证布局准确的情况进行定位
+                    self.tableView.scrollToRow(at: indexPath, at: .top, animated: false)
+                }
+            }
+        }
     }
 
     override func viewWillAppear(_ animated: Bool) {
@@ -189,6 +199,12 @@ class SelectWalletVC: UIViewController, UITableViewDelegate, UITableViewDataSour
             }
         }
     }
+    
+    // MARK: UIScrollViewDelegate
+    
+    func scrollViewDidScroll(_ scrollView: UIScrollView) {
+        UIApplication.shared.keyWindow?.endEditing(true)
+    }
 
     // MARK: UITableViewDelegate & UITableViewDataSource
 
@@ -296,17 +312,27 @@ class SelectWalletVC: UIViewController, UITableViewDelegate, UITableViewDataSour
         for (i, v) in cateButtons.enumerated() {
             v.isSelected = i == selectedCateIndex
         }
+        var cate: WalletCate = .all
         if selectedCateIndex == 0 {
             // All
-            sectionInfos = generatePageDataSource(cate: .all, enterMode: self.enterMode, keyword: self.searchingKeyword)
+            cate = .all
         } else if selectedCateIndex == 1 {
             // HD
-            sectionInfos = generatePageDataSource(cate: .hd, enterMode: self.enterMode, keyword: self.searchingKeyword)
+            cate = .hd
         } else if selectedCateIndex == 2 {
             // Normal
-            sectionInfos = generatePageDataSource(cate: .normal, enterMode: self.enterMode, keyword: self.searchingKeyword)
+            cate = .normal
         }
-        tableView.reloadData()
+        UIApplication.shared.isNetworkActivityIndicatorVisible = true
+        generatePageDataSource(cate: cate, enterMode: self.enterMode, keyword: self.searchingKeyword) {[weak self] (sectionInfos) in
+            guard let self = self else {
+                return
+            }
+            UIApplication.shared.isNetworkActivityIndicatorVisible = false
+            self.sectionInfos = sectionInfos
+            self.tableView.reloadData()
+        }
+        
     }
 }
 
@@ -320,70 +346,84 @@ extension SelectWalletVC {
     }
 
     /// 生成当前页面需要展示的数据源
-    func generatePageDataSource(cate: WalletCate, enterMode: EnterMode, keyword: String = "") -> [SelectWalletDisplaySectionInfo] {
-        var sectionInfos: [SelectWalletDisplaySectionInfo] = []
-        /// 普通组
-        var normalSectionInfo = SelectWalletDisplaySectionInfo(wallet: nil, subWallets: [])
-        let wallets = AssetVCSharedData.sharedData.walletList as! [Wallet]
-        for wallet in wallets {
-            if let balance = AssetService.sharedInstace.balances.first(where: { (ba) -> Bool in
-                ba.addr == wallet.address
-            }) {
-                wallet.balance = balance.free ?? "0"
-                wallet.lockedBalance = balance.lock ?? "0"
-            }
-            let foundable = self.isFoundable(wallet: wallet, keyword: keyword)
-            if wallet.isHD == false {
-                if cate == .all || cate == .normal {
-                    if keyword.count > 0 {
-                        // 如果存在关键字，需要筛选钱包模糊名称或地址精确名称
-                        if foundable == true {
+    func generatePageDataSource(cate: WalletCate, enterMode: EnterMode, keyword: String = "", complete: (([SelectWalletDisplaySectionInfo]) -> Void)?) {
+        DispatchQueue.global().async {
+            var sectionInfos: [SelectWalletDisplaySectionInfo] = []
+            /// 普通组
+            var normalSectionInfo = SelectWalletDisplaySectionInfo(wallet: nil, subWallets: [])
+            let wallets = AssetVCSharedData.sharedData.walletList as! [Wallet]
+            for wallet in wallets {
+//                if let balance = AssetService.sharedInstace.balances.first(where: { (ba) -> Bool in
+//                    ba.addr == wallet.address
+//                }) {
+//                    wallet.balance = balance.free ?? "0"
+//                    wallet.lockedBalance = balance.lock ?? "0"
+//                }
+                let foundable = self.isFoundable(wallet: wallet, keyword: keyword)
+                if wallet.isHD == false {
+                    if cate == .all || cate == .normal {
+                        if keyword.count > 0 {
+                            // 如果存在关键字，需要筛选钱包模糊名称或地址精确名称
+                            if foundable == true {
+                                normalSectionInfo.subWallets.append(wallet)
+                            }
+                        } else {
                             normalSectionInfo.subWallets.append(wallet)
                         }
-                    } else {
-                        normalSectionInfo.subWallets.append(wallet)
                     }
-                }
-            } else {
-                if cate == .all || cate == .hd {
-                    if wallet.parentId == nil {
-                        /// 临时的HD分组
-                        var tempHDSectionInfo = SelectWalletDisplaySectionInfo(wallet: wallet, subWallets: [])
-                        let allSubWallets = WalletHelper.fetchHDSubWallets(from: wallets)
-                        let subWallets = allSubWallets.filter { (sWallet) -> Bool in
-                            sWallet.parentId == wallet.uuid
-                        }
-                        if keyword.count > 0 {
-                            let fiteredSubWallets = subWallets.filter { (wallet) -> Bool in
-                                return self.isFoundable(wallet: wallet, keyword: keyword)
+                } else {
+                    if cate == .all || cate == .hd {
+                        if wallet.parentId == nil {
+                            /// 临时的HD分组
+                            var tempHDSectionInfo = SelectWalletDisplaySectionInfo(wallet: wallet, subWallets: [])
+                            let allSubWallets = WalletHelper.fetchHDSubWallets(from: wallets)
+                            let subWallets = allSubWallets.filter { (sWallet) -> Bool in
+                                sWallet.parentId == wallet.uuid
                             }
-                            tempHDSectionInfo.subWallets = fiteredSubWallets
-                        } else {
-                            tempHDSectionInfo.subWallets = subWallets
-                        }
-                        if tempHDSectionInfo.subWallets.count > 0 {
-                            tempHDSectionInfo.subWallets.sort { (l, h) -> Bool in
-                                l.pathIndex < h.pathIndex
+                            if keyword.count > 0 {
+                                let fiteredSubWallets = subWallets.filter { (wallet) -> Bool in
+                                    return self.isFoundable(wallet: wallet, keyword: keyword)
+                                }
+                                tempHDSectionInfo.subWallets = fiteredSubWallets
+                            } else {
+                                tempHDSectionInfo.subWallets = subWallets
                             }
-                            sectionInfos.append(tempHDSectionInfo)
+                            if tempHDSectionInfo.subWallets.count > 0 {
+                                tempHDSectionInfo.subWallets.sort { (l, h) -> Bool in
+                                    l.pathIndex < h.pathIndex
+                                }
+                                sectionInfos.append(tempHDSectionInfo)
+                            }
                         }
                     }
                 }
             }
-        }
-        if normalSectionInfo.subWallets.count > 0 {
-            if enterMode == .fromDelegation {
-                normalSectionInfo.subWallets.sort { (ls, rs) -> Bool in
-                    let lsBalance = (BigUInt(ls.balance) ?? 0) + (BigUInt(ls.lockedBalance) ?? 0)
-                    let rsBalance = ((BigUInt(rs.balance) ?? 0) + (BigUInt(rs.lockedBalance) ?? 0))
-                    // 余额降序排列（自由金和锁定金）
-                    return lsBalance > rsBalance
+            if normalSectionInfo.subWallets.count > 0 {
+                if enterMode == .fromDelegation {
+                    for wal in normalSectionInfo.subWallets {
+                        /// 普通钱包按照余额排序
+                        if let balance = AssetService.sharedInstace.balances.first(where: { (ba) -> Bool in
+                            ba.addr == wal.address
+                        }) {
+                            wal.balance = balance.free ?? "0"
+                            wal.lockedBalance = balance.lock ?? "0"
+                        }
+                    }
+                    normalSectionInfo.subWallets.sort { (ls, rs) -> Bool in
+                        let lsBalance = (BigUInt(ls.balance) ?? 0) + (BigUInt(ls.lockedBalance) ?? 0)
+                        let rsBalance = ((BigUInt(rs.balance) ?? 0) + (BigUInt(rs.lockedBalance) ?? 0))
+                        // 余额降序排列（自由金和锁定金）
+                        return lsBalance > rsBalance
+                    }
                 }
+                /// 普通组作为数据源的第一组数据
+                sectionInfos.insert(normalSectionInfo, at: 0)
             }
-            /// 普通组作为数据源的第一组数据
-            sectionInfos.insert(normalSectionInfo, at: 0)
+            DispatchQueue.main.async {
+                complete?(sectionInfos)
+            }
         }
-        return sectionInfos
+//        return sectionInfos
     }
 
     /// 钱包是否可以被搜索到
