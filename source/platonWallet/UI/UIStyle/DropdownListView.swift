@@ -13,9 +13,7 @@ import SnapKit
 struct DropdownCellStyle {
 
 //    var wallets: [Wallet]
-    var sectionInfos: [WalletDisplaySectionInfo] {
-        return WalletHelper.fetchWalletDisplaySectionInfos()
-    }
+    var sectionInfos: [WalletDisplaySectionInfo] = WalletHelper.fetchWalletDisplaySectionInfos()
     
     var isExpand: Bool = false
     var curWallet: Wallet?

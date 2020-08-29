@@ -580,7 +580,7 @@ extension AssetViewControllerV060 {
     
     @objc func reloadCurrentWallet(addr: String) {
         // WalletService.sharedInstance.refreshDB()
-        self.walletsHeaderView.controller.updateWalletList()
+//        self.walletsHeaderView.controller.updateWalletList()
         AssetVCSharedData.sharedData.currentRootWalletAddress = addr
     }
     

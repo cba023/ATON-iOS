@@ -172,7 +172,7 @@ class TransferConfirmsView: UIView {
         addSubview(submitBtn)
         submitBtn.snp.makeConstraints { make in
             make.top.equalTo(feeLabel.snp.bottom).offset(52)
-            make.bottom.equalToSuperview().offset(-20)
+            make.bottom.equalToSuperview().offset(-20 - kSafeAreaBottomInset)
             make.leading.equalToSuperview().offset(49)
             make.trailing.equalToSuperview().offset(-49)
             make.height.equalTo(44)

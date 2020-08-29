@@ -188,7 +188,7 @@ class OfflineSignatureConfirmView: UIView {
             make.trailing.equalToSuperview().offset(-16)
             make.height.equalTo(44)
             make.top.equalTo(contentView.snp.bottom).offset(16)
-            make.bottom.equalToSuperview().offset(-16)
+            make.bottom.equalToSuperview().offset(-20 - kSafeAreaBottomInset)
         }
 
         submitBtn.style = .blue

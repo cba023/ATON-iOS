@@ -34,3 +34,12 @@ let kiOS11Later = (kVersion >= 11.0)
 let kiOS10Later = (kVersion >= 10.0)
 let kiOS9Later = (kVersion >= 9.0)
 let kiOS8Later = (kVersion >= 8.0)
+
+
+/// 安全区底部缩进
+var kSafeAreaBottomInset: CGFloat {
+    if #available(iOS 11.0, *), let keyWindow = UIApplication.shared.keyWindow {
+        return keyWindow.safeAreaInsets.bottom
+    }
+    return 0.0
+}

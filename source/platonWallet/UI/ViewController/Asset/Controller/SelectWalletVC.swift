@@ -184,9 +184,11 @@ class SelectWalletVC: UIViewController, UITableViewDelegate, UITableViewDataSour
     }
 
     func hide() {
-        UIView.animate(withDuration: 0.2) {
+        UIView.animate(withDuration: 0.2, animations: {
             self.contentView.frame = CGRect(x: self.view.bounds.width, y: 0, width: self.contentViewWidth, height: self.view.bounds.height)
-            self.dismiss(animated: true, completion: nil)
+            self.view.alpha = 0
+        }) { (finished) in
+            self.dismiss(animated: false, completion: nil)
         }
     }
 
@@ -202,7 +204,7 @@ class SelectWalletVC: UIViewController, UITableViewDelegate, UITableViewDataSour
     
     // MARK: UIScrollViewDelegate
     
-    func scrollViewDidScroll(_ scrollView: UIScrollView) {
+    func scrollViewWillBeginDragging(_ scrollView: UIScrollView) {
         UIApplication.shared.keyWindow?.endEditing(true)
     }
 
@@ -273,7 +275,7 @@ class SelectWalletVC: UIViewController, UITableViewDelegate, UITableViewDataSour
         print("\n🟢🟢🟢🟢selected address: \(address) 🟢🟢🟢🟢\n")
         #endif
         callback(address)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
             self.hide()
         }
     }
